@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>校园二手商品交易系统</title>
+<!-- 替换为本地 Bootstrap CSS -->
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<!-- 替换为本地 Bootstrap Icons -->
+<link href="css/bootstrap-icons.min.css" rel="stylesheet">
+<!-- 保留你的自定义样式 -->
+<link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="#" onclick="showPage('home')">
+                <i class="bi bi-shop"></i> 校园二手交易
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item" id="navProducts" style="display: none;">
+                        <a class="nav-link" href="#" onclick="showPage('products')">商品管理</a>
+                    </li>
+                    <li class="nav-item" id="navTransactions" style="display: none;">
+                        <a class="nav-link" href="#" onclick="showPage('transactions')">交易记录</a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav">
+                    <li class="nav-item" id="navLogin">
+                        <a class="nav-link" href="#" onclick="showPage('login')">登录</a>
+                    </li>
+                    <li class="nav-item" id="navRegister">
+                        <a class="nav-link" href="#" onclick="showPage('register')">注册</a>
+                    </li>
+                    <li class="nav-item dropdown" id="navUser" style="display: none;">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> <span id="username"></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" onclick="showPage('profile')">个人资料</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">退出登录</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <main class="container mt-4 mb-8">
+        <!-- 首页 -->
+        <div id="homePage" class="page active">
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0">商品搜索</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="searchForm">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <input type="text" class="form-control" id="searchKeyword" placeholder="搜索商品名称">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <select class="form-select" id="searchCategory">
+                                            <option value="">所有分类</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" id="minPrice" placeholder="最低价格">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" id="maxPrice" placeholder="最高价格">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-search"></i> 搜索
+                                        </button>
+                                        <button type="button" class="btn btn-secondary ms-2" onclick="resetSearch()">
+                                            <i class="bi bi-arrow-clockwise"></i> 重置
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- 左侧分类列表 -->
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">商品分类</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush" id="categoryList">
+                                <li class="list-group-item category-item active" data-category="">
+                                    所有分类
+                                </li>
+                                <!-- 分类项将通过JavaScript动态生成 -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-9">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="text-dark">商品列表</h5>
+                        <span id="productCount" class="text-muted"></span>
+                    </div>
+                    <!-- 添加加载状态容器 -->
+                    <div id="productLoading" class="loading" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <p class="mt-3">加载中...</p>
+                    </div>
+                    <div id="productList" class="row">
+                        <!-- 商品列表将通过JavaScript动态加载 -->
+                    </div>
+                    <nav id="pagination" class="mt-4">
+                        <!-- 分页将通过JavaScript动态生成 -->
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 登录页面 -->
+        <div id="loginPage" class="page">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0 text-center">用户登录</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label for="loginUsername" class="form-label">用户名</label>
+                                    <input type="text" class="form-control" id="loginUsername" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="loginPassword" class="form-label">密码</label>
+                                    <input type="password" class="form-control" id="loginPassword" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">登录</button>
+                                </div>
+                            </form>
+                            <div class="text-center mt-3">
+                                <span>还没有账号？</span>
+                                <a href="#" onclick="showPage('register')">立即注册</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 注册页面 -->
+        <div id="registerPage" class="page">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0 text-center">用户注册</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="registerForm">
+                                <div class="mb-3">
+                                    <label for="registerUsername" class="form-label">用户名</label>
+                                    <input type="text" class="form-control" id="registerUsername" required maxlength="20">
+                                    <div class="form-text">最多20个字符，支持字母和数字组合</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerPassword" class="form-label">密码</label>
+                                    <input type="password" class="form-control" id="registerPassword" required minlength="6">
+                                    <div class="form-text">至少6个字符</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">确认密码</label>
+                                    <input type="password" class="form-control" id="confirmPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerPhone" class="form-label">手机号</label>
+                                    <input type="tel" class="form-control" id="registerPhone" required pattern="1[3-9]\d{9}">
+                                    <div class="form-text">请输入11位手机号</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerCampusCard" class="form-label">校园卡号/学号</label>
+                                    <input type="text" class="form-control" id="registerCampusCard" required maxlength="20">
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">注册</button>
+                                </div>
+                            </form>
+                            <div class="text-center mt-3">
+                                <span>已有账号？</span>
+                                <a href="#" onclick="showPage('login')">立即登录</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 商品管理页面 -->
+        <div id="productsPage" class="page">
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">我的商品</h5>
+                            <button class="btn btn-primary" onclick="showAddProductModal()">
+                                <i class="bi bi-plus-circle"></i> 发布商品
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- 添加加载状态容器 -->
+                            <div id="myProductLoading" class="loading" style="display: none;">
+                                <div class="loading-spinner"></div>
+                                <p class="mt-3">加载中...</p>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="text-dark">我的商品列表</h5>
+                                <span id="myProductCount" class="text-muted"></span>
+                            </div>
+                            <div id="myProductList" class="row">
+                                <!-- 我的商品列表将通过JavaScript动态加载 -->
+                            </div>
+                            <nav id="myProductPagination" class="mt-4">
+                                <!-- 分页将通过JavaScript动态生成 -->
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 交易记录页面 -->
+        <div id="transactionsPage" class="page">
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0">交易记录筛选</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="transactionSearchForm">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <select class="form-select" id="transactionStatus">
+                                            <option value="">所有状态</option>
+                                            <option value="0">未支付</option>
+                                            <option value="1">已成交</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-select" id="transactionCategory">
+                                            <option value="">所有分类</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="date" class="form-control" id="startDate">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="date" class="form-control" id="endDate">
+                                    </div>
+                                    <div class="col-md-12 mt-3">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-search"></i> 搜索
+                                        </button>
+                                        <button type="button" class="btn btn-secondary ms-2" onclick="resetTransactionSearch()">
+                                            <i class="bi bi-arrow-clockwise"></i> 重置
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0">交易记录</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="transactionList">
+                                <!-- 交易记录列表将通过JavaScript动态加载 -->
+                            </div>
+                            <nav id="transactionPagination" class="mt-4">
+                                <!-- 分页将通过JavaScript动态生成 -->
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 个人资料页面 -->
+        <div id="profilePage" class="page">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0">个人资料</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="profileForm">
+                                <div class="mb-3">
+                                    <label class="form-label">用户ID</label>
+                                    <input type="text" class="form-control" id="profileUserId" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">用户名</label>
+                                    <input type="text" class="form-control" id="profileUsername" readonly>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="profilePhone" class="form-label">手机号</label>
+                                    <input type="tel" class="form-control" id="profilePhone" pattern="1[3-9]\d{9}">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="profileCampusCard" class="form-label">校园卡号/学号</label>
+                                    <input type="text" class="form-control" id="profileCampusCard" maxlength="20">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">注册时间</label>
+                                    <input type="text" class="form-control" id="profileCreatedAt" readonly>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">更新资料</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-light py-4 mt-8">
+        <div class="container text-center text-muted">
+            <p class="mb-0">校园二手商品交易系统 &copy; 2026</p>
+        </div>
+    </footer>
+
+    <!-- 商品详情模态框 -->
+    <div class="modal fade" id="productDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">商品详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="productDetailContent">
+                        <!-- 商品详情将通过JavaScript动态加载 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="buyProductBtn">立即购买</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+       <!-- 发布商品模态框（完整版本） -->
+    <div class="modal fade" id="addProductModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">发布商品</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addProductForm">
+                        <div class="mb-3">
+                            <label for="productName" class="form-label">商品名称</label>
+                            <input type="text" class="form-control" id="productName" required maxlength="20">
+                        </div>
+                        <div class="mb-3">
+                            <label for="productDescription" class="form-label">商品描述</label>
+                            <textarea class="form-control" id="productDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="productPrice" class="form-label">价格</label>
+                            <input type="number" class="form-control" id="productPrice" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="productCategory" class="form-label">分类</label>
+                            <select class="form-select" id="productCategory" required>
+                                <option value="">选择分类</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="productImage" class="form-label">商品图片</label>
+                            <input type="file" class="form-control" id="productImage" accept="image/*">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="addProduct()">发布</button>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- 编辑商品模态框 -->
+    <div class="modal fade" id="editProductModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑商品</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProductForm">
+                        <input type="hidden" id="editProductId">
+                        <div class="mb-3">
+                            <label for="editProductName" class="form-label">商品名称</label>
+                            <input type="text" class="form-control" id="editProductName" required maxlength="20">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductDescription" class="form-label">商品描述</label>
+                            <textarea class="form-control" id="editProductDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductPrice" class="form-label">价格</label>
+                            <input type="number" class="form-control" id="editProductPrice" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductCategory" class="form-label">分类</label>
+                            <select class="form-select" id="editProductCategory" required>
+                                <option value="">选择分类</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductImage" class="form-label">更新商品图片</label>
+                            <input type="file" class="form-control" id="editProductImage" accept="image/*">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductStatus" class="form-label">商品状态</label>
+                            <select class="form-select" id="editProductStatus" required>
+                                <option value="1">可售</option>
+                                <option value="2">已售出</option>
+                                <option value="3">已下架</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEditProductForm()">保存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
