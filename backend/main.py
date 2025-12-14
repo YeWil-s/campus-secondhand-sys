@@ -12,23 +12,29 @@ from config import settings
 from database import engine, Base, test_connection, create_tables
 from routers import auth, products, users, transactions, upload
 
-# 测试数据库连接
-print("正在连接数据库...")
-if not test_connection():
-    print("❌ 数据库连接失败，请检查MySQL配置")
-    import sys
-    sys.exit(1)
-
-# 创建数据库表
-print("正在创建数据库表...")
-create_tables()
-print("✅ 数据库初始化完成")
-
+# ----------------------------------------------------------------
+# 【修正】先定义 app 实例，然后才能使用 @app.on_event
+# ----------------------------------------------------------------
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="校园二手商品交易系统API"
 )
+
+# ----------------------------------------------------------------
+# 测试数据库连接和创建表 (使用 FastAPI 的 startup 事件)
+# ----------------------------------------------------------------
+@app.on_event("startup")
+def startup_db_init():
+    print("正在连接数据库...")
+    if not test_connection():
+        print("数据库连接失败，请检查MySQL配置")
+        # 推荐使用 HTTPException 或直接 raise RuntimeError
+        raise RuntimeError("Database connection failed!") 
+
+    print("正在创建数据库表...")
+    create_tables()
+    print("数据库初始化完成")
 
 # 配置CORS
 app.add_middleware(
@@ -62,4 +68,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000,reload=True)
+    # uvicorn.run 在这里运行，并导入上面的 app 实例
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

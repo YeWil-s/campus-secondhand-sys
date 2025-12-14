@@ -146,7 +146,7 @@ const productAPI = {
     getDetail: (productId) => apiCall(`/products/${productId}`),
 
     // 创建商品
-    create: (productData) => apiCall('/products/', {
+    create: (productData) => apiCall('/products/create', {
         method: 'POST',
         body: JSON.stringify(productData)
     }),

@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, text
 from typing import Optional, List
 from database import get_db
-from database.models import User, Product, Category
+from database.models import User, Product, Category, Transaction # 确保导入 Transaction
 from schemas.product import ProductCreate, ProductResponse, ProductUpdate, ProductSearch, ProductListResponse
 from utils.security import get_current_user
 from utils.helpers import generate_product_id
 
 router = APIRouter()
 
-@router.post("/", response_model=ProductResponse, summary="发布商品")
+@router.post("/create", response_model=ProductResponse, summary="发布商品")
 async def create_product(
     product: ProductCreate,
     current_user: User = Depends(get_current_user),
@@ -77,20 +77,9 @@ async def create_product(
         )
 
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, text
-from typing import Optional, List
-from database import get_db
-from database.models import User, Product, Category
-from schemas.product import ProductCreate, ProductResponse, ProductUpdate, ProductSearch, ProductListResponse
-from utils.security import get_current_user
-from utils.helpers import generate_product_id
-
-router = APIRouter()
-
-# ... (create_product 函数保持不变)
-
+# ====================================================
+# 2. 浏览可用商品 (GET /available)
+# ====================================================
 @router.get("/available", response_model=ProductListResponse, summary="浏览可用商品")
 async def get_available_products(
         keyword: Optional[str] = Query(None, description="搜索关键词"),
@@ -99,9 +88,7 @@ async def get_available_products(
         max_price: Optional[float] = Query(None, ge=0, description="最高价格"),
         page: int = Query(1, ge=1, description="页码"),
         page_size: int = Query(10, ge=1, le=100, description="每页数量"),
-        # 【修复 1：新增 sort_by 参数】
         sort_by: str = Query("newest", description="排序方式: newest/price_asc/price_desc"), 
-        # 【关键修复】: 允许匿名访问，如果已登录则获取用户信息
         current_user: Optional[User] = Depends(get_current_user), 
         db: Session = Depends(get_db)
 ):
@@ -109,23 +96,19 @@ async def get_available_products(
     min_price_fen = round(min_price * 100) if min_price is not None else None
     max_price_fen = round(max_price * 100) if max_price is not None else None
 
-    # 改用参数化 SQL，避免注入
     sql_params = {
         "status": 1,
         "offset": (page - 1) * page_size,
         "limit": page_size
     }
 
-    # 构建 WHERE 条件和参数
     where_conditions = ["p.status = :status"]
 
-    # 【核心修复】: 排除当前用户自己的商品 (如果已登录)
     if current_user:
         where_conditions.append("p.seller_id != :exclude_seller_id")
-        sql_params["exclude_seller_id"] = current_user.user_id # 添加排除条件
+        sql_params["exclude_seller_id"] = current_user.user_id 
 
     if keyword:
-        # 注意：这里您的原有代码只搜索 p.name，如果需要搜索 p.description，需要修改
         where_conditions.append("p.name LIKE :keyword")
         sql_params["keyword"] = f"%{keyword}%"
     if category_id:
@@ -138,11 +121,9 @@ async def get_available_products(
         where_conditions.append("p.price <= :max_price")
         sql_params["max_price"] = max_price_fen
 
-    # 拼接最终 WHERE 子句
     where_clause = ' AND '.join(where_conditions)
     
-    # 【修复 2：将排序逻辑移到变量定义后，并构建 ORDER BY 子句】
-    order_by_clause = "p.created_at DESC" # 默认按最新发布
+    order_by_clause = "p.created_at DESC" 
     if sort_by == "price_asc":
         order_by_clause = "p.price ASC, p.created_at DESC"
     elif sort_by == "price_desc":
@@ -150,7 +131,6 @@ async def get_available_products(
     elif sort_by == "newest":
         order_by_clause = "p.created_at DESC"
         
-    # 统计总数（现在总数是排除了自己商品后的准确数量）
     count_sql = f"""
         SELECT COUNT(p.product_id) 
         FROM products p
@@ -159,7 +139,6 @@ async def get_available_products(
     count_params = {k: v for k, v in sql_params.items() if k not in ['offset', 'limit']}
     total = db.execute(text(count_sql), count_params).scalar()
     
-    # 获取分页数据
     sql = f"""
         SELECT 
             p.product_id,
@@ -181,13 +160,10 @@ async def get_available_products(
         ORDER BY {order_by_clause} 
         LIMIT :limit OFFSET :offset
     """
-    # 【修复 3：使用动态 order_by_clause 替换硬编码的 ORDER BY p.created_at DESC】
-
-    # 执行参数化查询
+    
     products = db.execute(text(sql), sql_params).fetchall()
 
     product_list = []
-    # ... (构建 product_list 和返回 ProductListResponse 的代码保持不变)
     for product in products:
         product_dict = {
             "product_id": product.product_id,
@@ -215,6 +191,9 @@ async def get_available_products(
         total_pages=total_pages
     )
 
+# ====================================================
+# 3. 我的商品 (GET /my)
+# ====================================================
 @router.get("/my", response_model=ProductListResponse, summary="我的商品")
 async def get_my_products(
     page: int = Query(1, ge=1, description="页码"),
@@ -261,6 +240,9 @@ async def get_my_products(
         total_pages=total_pages
     )
 
+# ====================================================
+# 4. 商品详情 (GET /{product_id})
+# ====================================================
 @router.get("/{product_id}", response_model=ProductResponse, summary="商品详情")
 async def get_product_detail(
     product_id: str,
@@ -296,6 +278,9 @@ async def get_product_detail(
     
     return ProductResponse(**product_dict)
 
+# ====================================================
+# 5. 更新商品 (PUT /{product_id})
+# ====================================================
 @router.put("/{product_id}", response_model=ProductResponse, summary="更新商品")
 async def update_product(
     product_id: str,
@@ -350,6 +335,9 @@ async def update_product(
     
     return ProductResponse(**product_dict)
 
+# ====================================================
+# 6. 下架商品 (DELETE /{product_id})
+# ====================================================
 @router.delete("/{product_id}", summary="下架商品")
 async def delete_product(
     product_id: str,
@@ -373,7 +361,6 @@ async def delete_product(
         )
     
     # 检查商品是否已被交易
-    from database.models import Transaction
     transaction = db.query(Transaction).filter(Transaction.product_id == product_id).first()
     if transaction:
         raise HTTPException(
@@ -384,6 +371,9 @@ async def delete_product(
     db.commit()
     return {"message": "商品下架成功"}
 
+# ====================================================
+# 7. 获取分类列表 (GET /categories/list)
+# ====================================================
 @router.get("/categories/list", response_model=List[dict], summary="获取分类列表")
 async def get_categories(db: Session = Depends(get_db)):
     """获取所有商品分类"""
