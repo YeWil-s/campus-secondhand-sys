@@ -107,6 +107,7 @@ const productAPI = {
         if (params.category_id) query.append('category_id', params.category_id);
         if (params.min_price) query.append('min_price', params.min_price);
         if (params.max_price) query.append('max_price', params.max_price);
+        if (params.sort_by) query.append('sort_by', params.sort_by);
         if (params.page) query.append('page', params.page);
         const pageSize = params.page_size || 10;
         query.append('page_size', pageSize);

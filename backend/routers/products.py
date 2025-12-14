@@ -77,6 +77,20 @@ async def create_product(
         )
 
 
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_, text
+from typing import Optional, List
+from database import get_db
+from database.models import User, Product, Category
+from schemas.product import ProductCreate, ProductResponse, ProductUpdate, ProductSearch, ProductListResponse
+from utils.security import get_current_user
+from utils.helpers import generate_product_id
+
+router = APIRouter()
+
+# ... (create_product 函数保持不变)
+
 @router.get("/available", response_model=ProductListResponse, summary="浏览可用商品")
 async def get_available_products(
         keyword: Optional[str] = Query(None, description="搜索关键词"),
@@ -85,6 +99,8 @@ async def get_available_products(
         max_price: Optional[float] = Query(None, ge=0, description="最高价格"),
         page: int = Query(1, ge=1, description="页码"),
         page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+        # 【修复 1：新增 sort_by 参数】
+        sort_by: str = Query("newest", description="排序方式: newest/price_asc/price_desc"), 
         # 【关键修复】: 允许匿名访问，如果已登录则获取用户信息
         current_user: Optional[User] = Depends(get_current_user), 
         db: Session = Depends(get_db)
@@ -122,9 +138,18 @@ async def get_available_products(
         where_conditions.append("p.price <= :max_price")
         sql_params["max_price"] = max_price_fen
 
-    # 拼接最终 SQL
+    # 拼接最终 WHERE 子句
     where_clause = ' AND '.join(where_conditions)
     
+    # 【修复 2：将排序逻辑移到变量定义后，并构建 ORDER BY 子句】
+    order_by_clause = "p.created_at DESC" # 默认按最新发布
+    if sort_by == "price_asc":
+        order_by_clause = "p.price ASC, p.created_at DESC"
+    elif sort_by == "price_desc":
+        order_by_clause = "p.price DESC, p.created_at DESC"
+    elif sort_by == "newest":
+        order_by_clause = "p.created_at DESC"
+        
     # 统计总数（现在总数是排除了自己商品后的准确数量）
     count_sql = f"""
         SELECT COUNT(p.product_id) 
@@ -133,6 +158,7 @@ async def get_available_products(
     """
     count_params = {k: v for k, v in sql_params.items() if k not in ['offset', 'limit']}
     total = db.execute(text(count_sql), count_params).scalar()
+    
     # 获取分页数据
     sql = f"""
         SELECT 
@@ -152,14 +178,16 @@ async def get_available_products(
         JOIN users u ON p.seller_id = u.user_id
         JOIN categories c ON p.category_id = c.id
         WHERE {where_clause}
-        ORDER BY p.created_at DESC 
+        ORDER BY {order_by_clause} 
         LIMIT :limit OFFSET :offset
     """
+    # 【修复 3：使用动态 order_by_clause 替换硬编码的 ORDER BY p.created_at DESC】
 
     # 执行参数化查询
     products = db.execute(text(sql), sql_params).fetchall()
 
     product_list = []
+    # ... (构建 product_list 和返回 ProductListResponse 的代码保持不变)
     for product in products:
         product_dict = {
             "product_id": product.product_id,
@@ -167,7 +195,7 @@ async def get_available_products(
             "description": product.description,
             "price": product.price,
             "created_at": product.created_at,
-            "status": product.status, # 确保使用 p.status
+            "status": product.status, 
             "seller_id": product.seller_id,
             "category_id": product.category_id,
             "image_path": product.image_path,

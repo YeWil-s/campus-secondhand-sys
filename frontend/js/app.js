@@ -2,6 +2,7 @@
 let currentPage = 1;
 let currentProductPage = 1;
 let currentTransactionPage = 1;
+let currentCategoryId = '';
 
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -102,14 +103,14 @@ async function loadCategories() {
     try {
         const categories = await productAPI.getCategories();
         
-        // 更新搜索框分类选项（保持不变）
-        const searchCategorySelect = document.getElementById('searchCategory');
+        // 【修改】: 移除对 searchCategorySelect 的处理
         const transactionCategorySelect = document.getElementById('transactionCategory');
         const productCategorySelect = document.getElementById('productCategory');
         
-        [searchCategorySelect, transactionCategorySelect, productCategorySelect].forEach(select => {
+        [transactionCategorySelect, productCategorySelect].forEach(select => {
             if (select) {
-                select.innerHTML = '<option value="">所有分类</option>';
+                // 对于交易筛选，保留 "所有分类" 选项
+                select.innerHTML = select.id === 'transactionCategory' ? '<option value="">所有分类</option>' : '<option value="">选择分类</option>';
                 categories.forEach(category => {
                     select.innerHTML += `<option value="${category.id}">${category.name}</option>`;
                 });
@@ -139,8 +140,8 @@ async function loadCategories() {
                 // 设置当前分类为激活状态
                 this.classList.add('active');
                 
-                // 更新搜索框分类选择
-                document.getElementById('searchCategory').value = this.dataset.category;
+                // 【核心修复】: 更新全局分类ID
+                currentCategoryId = this.dataset.category;
                 
                 // 重新加载商品列表
                 currentPage = 1;
@@ -157,7 +158,8 @@ async function loadCategories() {
             });
             this.classList.add('active');
             
-            document.getElementById('searchCategory').value = '';
+            // 【核心修复】: 重置全局分类ID
+            currentCategoryId = '';
             currentPage = 1;
             loadProducts(1);
         });
@@ -240,16 +242,19 @@ async function loadProducts(page = 1) {
     loading.style.display = 'block';
     try {
         const keyword = document.getElementById('searchKeyword').value;
-        const categoryId = document.getElementById('searchCategory').value;
+        // 【核心修复】: 从新的排序字段中读取值
+        const sortBy = document.getElementById('productSortBy').value;
         const minPrice = document.getElementById('minPrice').value;
         const maxPrice = document.getElementById('maxPrice').value;
         
         const params = {
             page,
             keyword,
-            category_id: categoryId,
+            // 【核心修复】: 使用全局变量 currentCategoryId
+            category_id: currentCategoryId, 
             min_price: minPrice,
             max_price: maxPrice,
+            sort_by: sortBy,
             page_size: 10
         };
         
@@ -290,6 +295,25 @@ function handleSearch(event) {
 // 重置搜索条件
 function resetSearch() {
     document.getElementById('searchForm').reset();
+    
+    // 【新增】: 重置排序
+    const sortBySelect = document.getElementById('productSortBy');
+    if (sortBySelect) {
+        sortBySelect.value = 'newest';
+    }
+    
+    // 【核心修复】: 重置全局分类ID
+    currentCategoryId = '';
+
+    // 移除其他分类的激活状态，并激活 "所有分类"
+    document.querySelectorAll('.category-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    const allCategoryItem = document.querySelector('.category-item[data-category=""]');
+    if (allCategoryItem) {
+        allCategoryItem.classList.add('active');
+    }
+    
     currentPage = 1;
     loadProducts(1);
 }
@@ -389,7 +413,7 @@ async function loadMyProducts(page = 1) {
     // 显示加载状态
     const productList = document.getElementById('myProductList');
     const loading = document.getElementById('myProductLoading');
-    if (productList) productList.innerHTML = ''; 
+    if (productList) productList.innerHTML = '';
     if (loading) loading.style.display = 'block';
 
     try {
