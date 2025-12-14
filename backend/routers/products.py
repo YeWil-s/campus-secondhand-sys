@@ -85,9 +85,11 @@ async def get_available_products(
         max_price: Optional[float] = Query(None, ge=0, description="最高价格"),
         page: int = Query(1, ge=1, description="页码"),
         page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+        # 【关键修复】: 允许匿名访问，如果已登录则获取用户信息
+        current_user: Optional[User] = Depends(get_current_user), 
         db: Session = Depends(get_db)
 ):
-    """获取可购买的商品列表（只显示状态为1的商品）"""
+    """获取可购买的商品列表（只显示状态为1的商品，并排除当前用户自己发布的商品）"""
     min_price_fen = round(min_price * 100) if min_price is not None else None
     max_price_fen = round(max_price * 100) if max_price is not None else None
 
@@ -101,9 +103,15 @@ async def get_available_products(
     # 构建 WHERE 条件和参数
     where_conditions = ["p.status = :status"]
 
+    # 【核心修复】: 排除当前用户自己的商品 (如果已登录)
+    if current_user:
+        where_conditions.append("p.seller_id != :exclude_seller_id")
+        sql_params["exclude_seller_id"] = current_user.user_id # 添加排除条件
+
     if keyword:
+        # 注意：这里您的原有代码只搜索 p.name，如果需要搜索 p.description，需要修改
         where_conditions.append("p.name LIKE :keyword")
-        sql_params["keyword"] = f"%{keyword}%"  # 参数化模糊查询
+        sql_params["keyword"] = f"%{keyword}%"
     if category_id:
         where_conditions.append("p.category_id = :category_id")
         sql_params["category_id"] = category_id
@@ -115,38 +123,41 @@ async def get_available_products(
         sql_params["max_price"] = max_price_fen
 
     # 拼接最终 SQL
+    where_clause = ' AND '.join(where_conditions)
+    
+    # 统计总数（现在总数是排除了自己商品后的准确数量）
+    count_sql = f"""
+        SELECT COUNT(p.product_id) 
+        FROM products p
+        WHERE {where_clause}
+    """
+    count_params = {k: v for k, v in sql_params.items() if k not in ['offset', 'limit']}
+    total = db.execute(text(count_sql), count_params).scalar()
+    # 获取分页数据
     sql = f"""
-        SELECT SQL_CALC_FOUND_ROWS 
+        SELECT 
             p.product_id,
             p.name,
             p.description,
             p.price,
             p.created_at,
-            p.image_path,
+            p.status,
             p.seller_id,
+            p.category_id,
+            p.image_path,
             u.username as seller_username,
             u.phone as seller_phone,
             c.name as category_name
         FROM products p
         JOIN users u ON p.seller_id = u.user_id
         JOIN categories c ON p.category_id = c.id
-        WHERE {' AND '.join(where_conditions)}
+        WHERE {where_clause}
         ORDER BY p.created_at DESC 
-        LIMIT :offset, :limit
+        LIMIT :limit OFFSET :offset
     """
 
     # 执行参数化查询
     products = db.execute(text(sql), sql_params).fetchall()
-
-    # 获取总数（参数化）
-    count_sql = f"""
-        SELECT COUNT(*) 
-        FROM products p
-        JOIN users u ON p.seller_id = u.user_id
-        JOIN categories c ON p.category_id = c.id
-        WHERE {' AND '.join(where_conditions)}
-    """
-    total = db.execute(text(count_sql), sql_params).scalar()
 
     product_list = []
     for product in products:
@@ -156,9 +167,9 @@ async def get_available_products(
             "description": product.description,
             "price": product.price,
             "created_at": product.created_at,
-            "status": 1,
+            "status": product.status, # 确保使用 p.status
             "seller_id": product.seller_id,
-            "category_id": 0,
+            "category_id": product.category_id,
             "image_path": product.image_path,
             "seller_username": product.seller_username,
             "seller_phone": product.seller_phone,
@@ -166,7 +177,7 @@ async def get_available_products(
         }
         product_list.append(ProductResponse(**product_dict))
 
-    total_pages = (total + page_size - 1) // page_size
+    total_pages = (total + page_size - 1) // page_size if total else 0
 
     return ProductListResponse(
         products=product_list,

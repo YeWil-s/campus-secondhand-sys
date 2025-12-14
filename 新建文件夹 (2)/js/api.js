@@ -108,8 +108,8 @@ const productAPI = {
         if (params.min_price) query.append('min_price', params.min_price);
         if (params.max_price) query.append('max_price', params.max_price);
         if (params.page) query.append('page', params.page);
-        const pageSize = params.page_size || 10;
-        query.append('page_size', pageSize);
+        if (params.page_size) query.append('page_size', params.page_size);
+        
         return apiCall(`/products/available?${query}`);
     },
 
@@ -117,8 +117,8 @@ const productAPI = {
     getMyProducts: (params = {}) => {
         const query = new URLSearchParams();
         if (params.page) query.append('page', params.page);
-        const pageSize = params.page_size || 10; 
-        query.append('page_size', pageSize);
+        if (params.page_size) query.append('page_size', params.page_size);
+        
         return apiCall(`/products/my?${query}`);
     },
 

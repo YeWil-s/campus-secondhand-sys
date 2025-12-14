@@ -1,34 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-        <script>
-        // 解析URL参数
-        function getUrlParam(name) {
-            const reg = new RegExp(`(^|&)${name}=([^&]*)(&|$)`);
-            const r = window.location.search.substr(1).match(reg);
-            return r ? decodeURIComponent(r[2]) : null;
-        }
-
-        // 检测登录状态，未登录则显示登录/注册页
-        window.onload = function() {
-            const token = localStorage.getItem('authToken');
-            const targetPage = getUrlParam('page'); // 获取URL中的页面参数
-
-            if (!token) {
-                // 未登录状态
-                if (targetPage === 'login' || targetPage === 'register') {
-                    // 根据参数显示对应页面
-                    showPage(targetPage);
-                } else {
-                    // 默认显示登录页
-                    showPage('login');
-                }
-            } else {
-                // 已登录状态，显示主页
-                showPage('home');
-            }
-        }
-    </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>校园二手商品交易系统</title>
@@ -68,11 +40,15 @@
                     <li class="nav-item" id="navRegister">
                         <a class="nav-link" href="#" onclick="showPage('register')">注册</a>
                     </li>
-                    <li class="nav-item" id="navUser" style="display: none;">
-                        <!-- 完全移除下拉相关标签，只保留点击跳转的用户名链接 -->
-                        <a class="nav-link" href="#" onclick="showPage('profile')" style="cursor: pointer;">
+                    <li class="nav-item dropdown" id="navUser" style="display: none;">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle"></i> <span id="username"></span>
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" onclick="showPage('profile')">个人资料</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">退出登录</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
@@ -96,7 +72,7 @@
                                         <input type="text" class="form-control" id="searchKeyword" placeholder="搜索商品名称">
                                     </div>
                                     <div class="col-md-2">
-                                        <select class="form-select" id="searchCategory" style="display: none;">
+                                        <select class="form-select" id="searchCategory">
                                             <option value="">所有分类</option>
                                         </select>
                                     </div>
@@ -366,8 +342,6 @@
                                 </div>
                                 <div class="d-grid">
                                     <button type="submit" class="btn btn-primary">更新资料</button>
-                                        <button type="button" class="btn btn-outline-primary mt-3" onclick="logout()">退出登录</button>
-                                    <!-- 在个人资料页面的表单底部添加 -->
                                 </div>
                             </form>
                         </div>

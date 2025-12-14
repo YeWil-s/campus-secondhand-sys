@@ -221,14 +221,13 @@ async function handleRegister(event) {
     }
 }
 
-// 修改退出登录函数，确保退出后跳转到welcome.html
+// 用户退出登录
 function logout() {
-    // 清除本地存储的登录状态
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('currentUser');
-
-    // 退出后跳转到欢迎页
-    window.location.href = 'welcome.html';
+    clearAuthToken();
+    clearCurrentUser();
+    showUnauthenticatedUI();
+    showPage('home');
+    showAlert('已退出登录', 'success');
 }
 
 // 加载商品列表
@@ -249,30 +248,41 @@ async function loadProducts(page = 1) {
             keyword,
             category_id: categoryId,
             min_price: minPrice,
-            max_price: maxPrice,
-            page_size: 10
+            max_price: maxPrice
         };
         
         const result = await productAPI.getAvailable(params);
-
         loading.style.display = 'none';
         currentPage = page;
         
-        const productsToRender = result.products; 
+        // 获取当前用户信息
+        const currentUser = getCurrentUser();
+        console.log('当前用户ID:', currentUser ? currentUser.user_id : '未登录');
 
-        // 确保 productList 元素存在
-        if (productList) {
-            productList.innerHTML = productsToRender.map(product => generateProductCard(product)).join('');
-        }
+        // 过滤掉自己发布的商品
+        const filteredProducts = currentUser 
+            ? result.products.filter(product => product.seller_id !== currentUser.user_id)
+            : result.products;
         
-        // 渲染分页
-        // 使用 generatePagination 函数，并传入所需的参数
         const pagination = document.getElementById('pagination');
-        if (pagination) {
+        
+        if (filteredProducts.length === 0) {
+            productList.innerHTML = `
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <h5>暂无商品</h5>
+                        <p>没有找到符合条件的商品</p>
+                    </div>
+                </div>
+            `;
+            pagination.innerHTML = '';
+        } else {
+            productList.innerHTML = filteredProducts.map(product => generateProductCard(product)).join('');
             pagination.innerHTML = generatePagination(result, 'loadProducts');
         }
         
-        document.getElementById('productCount').textContent = `共 ${result.total} 件商品`;
+        document.getElementById('productCount').textContent = `共找到 ${filteredProducts.length} 件商品`;
     } catch (error) {
         console.error('加载商品失败:', error);
         showAlert('加载商品失败');
@@ -389,11 +399,11 @@ async function loadMyProducts(page = 1) {
     // 显示加载状态
     const productList = document.getElementById('myProductList');
     const loading = document.getElementById('myProductLoading');
-    if (productList) productList.innerHTML = ''; 
-    if (loading) loading.style.display = 'block';
+    productList.innerHTML = '';
+    loading.style.display = 'block';
 
     try {
-        const result = await productAPI.getMyProducts({ page, page_size: 10 });
+        const result = await productAPI.getMyProducts({ page });
         loading.style.display = 'none';
         currentProductPage = page;
 
@@ -423,8 +433,6 @@ async function loadMyProducts(page = 1) {
         loading.style.display = 'none';
     }
 }
-
-
 // 显示编辑商品模态框
 async function showEditProductModal(productId) {
     try {
